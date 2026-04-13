@@ -13,6 +13,13 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 FABRICS = ["İpek", "Pamuk", "Yün", "Kot"]
 MODES = ["Mode 2", "Mode 4", "Mode 6", "Mode 8"]
 
+FABRIC_MAP = {
+    "İpek": "Silk",
+    "Pamuk": "Cotton",
+    "Yün": "Wool",
+    "Kot": "Denim"
+}
+
 def convert_to_binary(val):
     return 1 if str(val).strip() == "✓" else 0
 
@@ -41,7 +48,6 @@ def get_predicted_fabric(raw_val, actual_fabric):
 
     return None
 
-
 df_raw = pd.read_excel(FILE_PATH, sheet_name=SHEET_NAME, header=[1, 2])
 
 df_raw = df_raw[df_raw.iloc[:, 0].notna()].copy()
@@ -61,7 +67,6 @@ for col in data_raw.columns:
 
 data_raw.columns = pd.MultiIndex.from_tuples(cleaned_columns)
 
-
 valid_cols = [
     c for c in data_raw.columns
     if isinstance(c, tuple) and c[0] in MODES and c[1] in FABRICS
@@ -72,11 +77,11 @@ data_bin = data_raw.copy()
 for col in data_bin.columns:
     data_bin[col] = data_bin[col].apply(convert_to_binary)
 
-print("Geçerli kolonlar:")
+print("Valid columns:")
 for c in data_raw.columns:
     print(c)
 
-print(f"\nToplam kullanıcı sayısı: {len(user_series)}")
+print(f"\nTotal number of users: {len(user_series)}")
 
 
 fabric_rows = []
@@ -90,7 +95,7 @@ for fabric in FABRICS:
     accuracy = float(values.mean() * 100)
 
     fabric_rows.append({
-        "Fabric": fabric,
+        "Fabric": FABRIC_MAP[fabric],
         "Accuracy": accuracy
     })
 
@@ -154,7 +159,7 @@ if mode6_cols:
     plt.savefig(os.path.join(OUTPUT_DIR, "mode6_line_graph.png"), dpi=300)
     plt.show()
 else:
-    print("Mode 6 kolonları bulunamadı, line graph oluşturulamadı.")
+    print("Mode 6 columns not found, line graph could not be created.")
 
 actual_list = []
 predicted_list = []
@@ -167,8 +172,8 @@ for _, row in data_raw.iterrows():
 
         predicted = get_predicted_fabric(row[col], actual_fabric)
         if predicted is not None and predicted in FABRICS:
-            actual_list.append(actual_fabric)
-            predicted_list.append(predicted)
+            actual_list.append(FABRIC_MAP[actual_fabric])
+            predicted_list.append(FABRIC_MAP[predicted])
 
 if actual_list and predicted_list:
     cm = pd.crosstab(
@@ -176,7 +181,12 @@ if actual_list and predicted_list:
         pd.Series(predicted_list, name="Predicted"),
         dropna=False
     )
-    cm = cm.reindex(index=FABRICS, columns=FABRICS, fill_value=0)
+
+    cm = cm.reindex(
+        index=[FABRIC_MAP[f] for f in FABRICS],
+        columns=[FABRIC_MAP[f] for f in FABRICS],
+        fill_value=0
+    )
 
     plt.figure(figsize=(7, 6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
@@ -187,8 +197,8 @@ if actual_list and predicted_list:
     plt.savefig(os.path.join(OUTPUT_DIR, "confusion_matrix_mode6.png"), dpi=300)
     plt.show()
 else:
-    print("Confusion matrix için yeterli veri bulunamadı.")
-
+    print("Not enough data for confusion matrix.")
+    print("Cells should contain either ✓ or the wrongly selected fabric name.")
 
 group_rows = []
 
@@ -201,7 +211,7 @@ for mode in MODES:
         accuracy = float(data_bin[col].mean() * 100)
         group_rows.append({
             "Mode": mode,
-            "Fabric": fabric,
+            "Fabric": FABRIC_MAP[fabric],
             "Accuracy": accuracy
         })
 
@@ -218,8 +228,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(OUTPUT_DIR, "grouped_modes_fabric.png"), dpi=300)
 plt.show()
 
-
-print("\nKaydedilen grafikler:")
+print("\nSaved graphs:")
 for filename in [
     "fabric_accuracy.png",
     "mode_accuracy.png",
@@ -228,4 +237,4 @@ for filename in [
     "grouped_modes_fabric.png",
 ]:
     path = os.path.join(OUTPUT_DIR, filename)
-    print(f"- {path} -> {'OK' if os.path.exists(path) else 'YOK'}")
+    print(f"- {path} -> {'OK' if os.path.exists(path) else 'MISSING'}")
